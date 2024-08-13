@@ -1,64 +1,93 @@
 #include "GPIO_DEAKIN.h"
-#include "sam.h"
 
-// Configure a group of GPIO pins as either inputs or outputs
-bool GPIO_DEAKIN::Config_GPIO_Group(char Port_Num, char* PinArray, char pin_Mode, uint8_t numPins) {
-    PortGroup *port;
-    if (Port_Num == 'A') {
-        port = &PORT->Group[0];
-    } else if (Port_Num == 'B') {
-        port = &PORT->Group[1];
-    } else {
-        return false;
-    }
+bool GPIO_DEAKIN::Config_GPIO(char PortNum, char PinNum, char Mode) {
+  PortGroup *port;
+  if (PortNum == 'A') {
+    port = &PORT->Group[0];
+  } else if (PortNum == 'B') {
+    port = &PORT->Group[1];
+  } else {
+    return false;
+  }
 
-    for (uint8_t i = 0; i < numPins; i++) {
-        if (pin_Mode == 'O') { // OUTPUT mode
-            port->DIRSET.reg |= (1 << PinArray[i]);
-        } else if (pin_Mode == 'I') { // INPUT mode
-            port->DIRCLR.reg |= (1 << PinArray[i]);
-        } else {
-            return false;
-        }
-    }
-    return true;
+  if (Mode == OUTPUT) {
+    port->DIRSET.reg = (1 << PinNum);
+  } else if (Mode == INPUT) {
+    port->DIRCLR.reg = (1 << PinNum);
+  } else {
+    return false;
+  }
+
+  return true;
 }
 
-// Control a group of GPIO pins to display a specified pattern
-bool GPIO_DEAKIN::GPIO_Display_Pattern(char Port_Num, char* PinArray, char GPIOPattern, uint8_t numPins) {
-    PortGroup *port;
-    if (Port_Num == 'A') {
-        port = &PORT->Group[0];
-    } else if (Port_Num == 'B') {
-        port = &PORT->Group[1];
-    } else {
-        return false;
-    }
+bool GPIO_DEAKIN::Write_GPIO(char PortNum, char PinNum, bool State) {
+  PortGroup *port;
+  if (PortNum == 'A') {
+    port = &PORT->Group[0];
+  } else if (PortNum == 'B') {
+    port = &PORT->Group[1];
+  } else {
+    return false;
+  }
 
-    for (uint8_t i = 0; i < numPins; i++) {
-        if (GPIOPattern & (1 << i)) { // Check if the bit is set in the pattern
-            port->OUTSET.reg |= (1 << PinArray[i]);
-        } else {
-            port->OUTCLR.reg |= (1 << PinArray[i]);
-        }
-    }
-    return true;
+  if (State == HIGH) {
+    port->OUTSET.reg = (1 << PinNum);
+  } else if (State == LOW) {
+    port->OUTCLR.reg = (1 << PinNum);
+  } else {
+    return false;
+  }
+
+  return true;
 }
 
-// Create a running lights effect with a group of GPIO pins
-void GPIO_DEAKIN::GPIO_Running_Lights(char Port_Num, char* PinArray, uint8_t numPins, float delay_0_1ms) {
-    TIMER_DEAKIN timer;  // Assuming you have the TIMER_DEAKIN class implemented
+bool GPIO_DEAKIN::Read_GPIO(char PortNum, char PinNum) {
+  PortGroup *port;
+  if (PortNum == 'A') {
+    port = &PORT->Group[0];
+  } else if (PortNum == 'B') {
+    port = &PORT->Group[1];
+  } else {
+    return false;
+  }
 
-    PortGroup *port;
-    if (Port_Num == 'A') {
-        port = &PORT->Group[0];
-    } else if (Port_Num == 'B') {
-        port = &PORT->Group[1];
-    } else {
-        return;
-    }
+  return (port->IN.reg & (1 << PinNum)) != 0;
+}
+#include "GPIO_DEAKIN.h"
+#include "Arduino.h"
 
-    while (true) {
-        // Turn on pins sequentially from Pin 1 to Pin numPins
-        for (uint8_t i = 0; i < numPins; i++) {
-            port->OUT
+// Assuming these functions are defined elsewhere in your project
+extern bool Config_GPIO(char PortNum, char PinNum, char Mode);
+extern bool Write_GPIO(char PortNum, char PinNum, bool State);
+extern bool Read_GPIO(char PortNum, char PinNum);
+
+bool GPIO_DEAKIN::configurePins(uint8_t pinArray[], uint8_t size, uint8_t mode) {
+  bool result = true;
+  for (int i = 0; i < size; i++) {
+    result &= Config_GPIO(0, pinArray[i], mode);  // Assuming PortNum is always 0 for simplicity
+  }
+  return result;
+}
+
+bool GPIO_DEAKIN::displayPattern(uint8_t pinArray[], uint8_t pattern, uint8_t size) {
+  bool result = true;
+  for (int i = 0; i < size; i++) {
+    bool state = pattern & (1 << i);
+    result &= Write_GPIO(0, pinArray[i], state);  // Assuming PortNum is always 0
+  }
+  return result;
+}
+
+void GPIO_DEAKIN::sequentialOnOff(uint8_t pinArray[], uint8_t size, int delayTime) {
+  for (int i = 0; i < size; i++) {
+    Write_GPIO(0, pinArray[i], true);  // Turn on
+    delay(delayTime);
+    Write_GPIO(0, pinArray[i], false);  // Turn off
+  }
+  for (int i = size - 1; i >= 0; i--) {
+    Write_GPIO(0, pinArray[i], true);  // Turn on
+    delay(delayTime);
+    Write_GPIO(0, pinArray[i], false);  // Turn off
+  }
+}
